@@ -17,12 +17,19 @@ const client = new MongoClient(uri, { useNewUrlParser: true, useUnifiedTopology:
 async function run() {
     try {
         const appointmentCollection = client.db("doctorsPortal").collection("appointmentOptions");
+        const bookingsCollection = client.db("doctorsPortal").collection("bookings")
 
         // amra database a j data gulo rekhechi segulo get korlam
         app.get('/appointmentOptions', async(req, res) => {
            const query = {};
            const options = await appointmentCollection.find(query).toArray();
            res.send(options);
+        })
+
+        app.post('/bookings', async (req, res) =>{
+            const booking = req.body;
+            const result = await bookingsCollection.insertOne(booking);
+            res.send(result);
         })
       
     } finally {
