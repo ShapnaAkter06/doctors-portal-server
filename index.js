@@ -198,7 +198,7 @@ async function run() {
             const query = {};
             const doctors = await doctorsCollection.find(query).toArray();
             res.send(doctors)
-        }).
+        })
 
         app.post('/doctors', async (req, res) => {
             const doctor = req.body;
