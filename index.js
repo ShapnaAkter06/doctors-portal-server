@@ -2,6 +2,8 @@ const express = require('express');
 const cors = require('cors');
 const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 const jwt = require('jsonwebtoken');
+const nodemailer = require('nodemailer');
+const mg = require('nodemailer-mailgun-transport');
 require('dotenv').config();
 const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
 
@@ -17,6 +19,42 @@ app.use(express.json());
 
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.qlhnchw.mongodb.net/?retryWrites=true&w=majority`;
 const client = new MongoClient(uri, { useNewUrlParser: true, useUnifiedTopology: true, serverApi: ServerApiVersion.v1 });
+
+// email send for booking
+function sendBookingEmail(booking) {
+    const { email, treatment, appointmentDate, slot } = booking;
+
+    const auth = {
+        auth: {
+            api_key: process.env.EMAIL_SEND_KEY,
+            domain: process.env.EMAIL_SEND_DOMAIN
+        }
+    }
+
+    const transporter = nodemailer.createTransport(mg(auth));
+
+    console.log('send email' , email);
+    transporter.sendMail({
+        from: 'sender@example.com',
+        to: email,
+        subject: `Your appointment for ${treatment} is confirmed`,
+        text: 'I hope this message gets delivered!',
+        html: `
+        <h3>Your appointment is confirmed </h3>
+        <div>
+            <p>Your appointment for treatment : ${treatment} </p>
+            <p>Please visit us on ${appointmentDate} at ${slot} </p>
+            <p>Thanks for doctors portal</p>
+        </div>
+        `
+    }, (error, info) => {
+        if (error) {
+            console.log("Email send error", error);
+        } else {
+            console.log("Email sent" + info.response);
+        }
+    });
+}
 
 function verifyJWT(req, res, next) {
 
@@ -156,6 +194,8 @@ async function run() {
                 const message = `You have already booked on ${booking.appointmentDate}`;
                 return res.send({ acknowledged: false, message });
             }
+            // send email about appointment confirmation
+            sendBookingEmail(booking)
             const result = await bookingsCollection.insertOne(booking);
             res.send(result);
         })
@@ -177,11 +217,11 @@ async function run() {
             });
         })
 
-        app.post('/payments', async(req, res) => {
+        app.post('/payments', async (req, res) => {
             const payment = req.body;
             const result = await paymentsCollection.insertOne(payment);
             const id = payment.bookingId;
-            const filter = {_id: ObjectId(id)};
+            const filter = { _id: ObjectId(id) };
             const updateDoc = {
                 $set: {
                     paid: true,
@@ -216,7 +256,6 @@ async function run() {
             const user = await usersCollection.findOne(query);
             res.send({ isAdmin: user?.role === 'admin' });
         })
-
 
         app.post('/users', async (req, res) => {
             const user = req.body;
